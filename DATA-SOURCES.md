@@ -10,19 +10,20 @@ than guessed. And the model was called before it went in, so the request path is
 actually uses.
 
 This is also the one deliberate exception to the keyless rule the other wire miners follow. The
-four intents it serves (FACT_CHECK, CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK and
-AI_TEXT_DETECTION) are judged on the quality of a genuine answer, so the miner calls a keyed
-provider the operator holds a commercial plan for rather than a free public feed.
+seven intents it serves (FACT_CHECK, CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK,
+AI_TEXT_DETECTION, DOCUMENT_AUTHENTICITY, PRODUCT_AUTHENTICITY and CONTRACT_OBLIGATION_AUDIT) are
+judged on the quality of a genuine answer, so the miner calls a keyed provider the operator holds a
+commercial plan for rather than a free public feed.
 
 | Host | Provides | Plan | Output ownership | Commercial use | Rate limit |
 | --- | --- | --- | --- | --- | --- |
-| api.minimax.io | MiniMax-M3 answers for FACT_CHECK, CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK and AI_TEXT_DETECTION | Paid commercial MiniMax plan held by the operator, key as a Cloudflare secret | User keeps ownership of generated content per MiniMax's readable consumer terms, but the exact paid Open Platform clause could not be read (unverified, open item) | Not confirmed for the paid API surface, see the open item below | Governed by the paid plan, not published as a fixed public number; this miner declares 2 requests per second and makes one model call per request |
+| api.minimax.io | MiniMax-M3 answers for FACT_CHECK, CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK, AI_TEXT_DETECTION, DOCUMENT_AUTHENTICITY, PRODUCT_AUTHENTICITY and CONTRACT_OBLIGATION_AUDIT | Paid commercial MiniMax plan held by the operator, key as a Cloudflare secret | User keeps ownership of generated content per MiniMax's readable consumer terms, but the exact paid Open Platform clause could not be read (unverified, open item) | Not confirmed for the paid API surface, see the open item below | Governed by the paid plan, not published as a fixed public number; this miner declares 2 requests per second and makes one model call per request |
 
 ## Per source
 
 ### api.minimax.io (MiniMax API, Open Platform)
 
-The answer for each of the four intents. One call to MiniMax-M3 with a tight per-intent system
+The answer for each of the seven intents. One call to MiniMax-M3 with a tight per-intent system
 prompt, at request time. MiniMax-M3 is a reasoning model and emits a `<think>` block before its
 answer, which the worker strips, returning only the verdict and reasoning as the summary the node
 grades.

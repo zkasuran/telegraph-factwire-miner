@@ -1,0 +1,105 @@
+version: "1"
+kind: miner
+id: 7434
+slug: factwire-document-authenticity
+protocol: generic
+name: FactWire Document Authenticity
+description: >
+  Authenticity assessment for a described document, produced by a language model at request time.
+  Send the document or the whole question and the miner returns a verdict (likely authentic, likely
+  forged, likely altered or uncertain) with one or two sentences naming the deciding features, for
+  example inconsistent fonts, mismatched metadata or dates, an altered total, an invalid seal or a
+  hash that does not match a published checksum, then states that this is an assessment of the
+  described features rather than a forensic certification. The answer is produced with MiniMax under
+  a commercial plan held by the operator, so this miner is not keyless. Serves the
+  DOCUMENT_AUTHENTICITY intent.
+base_url: https://telegraph-fact.margyn.workers.dev
+
+docs:
+  documentation: https://telegraph-fact.margyn.workers.dev/
+
+limitations:
+  - code: MAX_PARAM_VALUE
+    message: document is the document text or its described features to assess. Passing the whole question verbatim works too. A single document, not a batch.
+    param: document
+    property: length
+    value_num: 8000
+    operator: lte
+
+rate_limit_per_sec: 2
+cache_ttl_sec: 10
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+input_schema:
+  type: object
+  properties:
+    question:
+      type: string
+      description: >
+        The full natural-language question, verbatim, for example 'Is this contract authentic given
+        the signature date predates the letterhead'. The miner reads the document from it, so
+        passing the whole question works as well as passing the document on its own.
+    document:
+      type: string
+      description: The document text or its described features to assess for authenticity.
+    text:
+      type: string
+      description: The document or passage to assess for authenticity.
+
+output_schema:
+  type: object
+  properties:
+    verdict:
+      type: string
+      description: The authenticity verdict, one of Likely authentic, Likely forged, Likely altered or Uncertain.
+    summary:
+      type: string
+      description: The verdict followed by one or two sentences naming the deciding features, with a note that this is not a forensic certification.
+    confidence:
+      type: number
+      description: 0.8 for a direct model read, lower when the answer is degraded.
+    as_of:
+      type: string
+      description: Timestamp the answer was produced.
+
+endpoints:
+  - path: /document-authenticity
+    external_path: /document-authenticity
+    method: GET
+    description: >
+      Authenticity assessment for one described document, the document as a query parameter
+      (?document=...). Also accepts the whole question in ?question= or ?text=.
+
+semantics:
+  signal_mapping:
+    confidence_field: confidence
+    label_field: summary
+    reason_field: summary
+  supported_intents:
+    - DOCUMENT_AUTHENTICITY
+
+on_chain:
+  transform: direct
+  min_price_usdc: 0.01
+  fields:
+    strings:
+      - index: 0
+        name: verdict
+        description: The authenticity verdict in a short phrase.
+        source_path: verdict
+      - index: 1
+        name: summary
+        description: The verdict plus the deciding features.
+        source_path: summary
+    integers:
+      - index: 0
+        name: confidence_x100
+        description: Confidence in the answer, scaled by one hundred to keep two digits as an integer.
+        source_path: confidence
+        multiplier: 100
+  request:
+    - endpoint: document-authenticity
+      method: GET
+      query_params:
+        document: { source: strings.1 }

@@ -8,9 +8,10 @@ travel with it.
 api.minimax.io (MiniMax API, Open Platform)
 
   Provides       The language-model answer this miner serves. FACT_CHECK,
-                 CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK and AI_TEXT_DETECTION
-                 are each answered by one call to MiniMax-M3 at request time,
-                 returning a verdict and the reasoning that settles the question.
+                 CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK, AI_TEXT_DETECTION,
+                 DOCUMENT_AUTHENTICITY, PRODUCT_AUTHENTICITY and
+                 CONTRACT_OBLIGATION_AUDIT are each answered by one call to MiniMax-M3
+                 at request time, returning a verdict and the reasoning that settles it.
   Plan           A paid commercial MiniMax plan held by the operator. The API key is
                  a Cloudflare secret set with `wrangler secret put MINIMAX_API_KEY`
                  and read as env.MINIMAX_API_KEY. It is never in the code or the repo.

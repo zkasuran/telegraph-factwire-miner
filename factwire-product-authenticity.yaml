@@ -1,0 +1,111 @@
+version: "1"
+kind: miner
+id: 7435
+slug: factwire-product-authenticity
+protocol: generic
+name: FactWire Product Authenticity
+description: >
+  Authenticity assessment for a described product or listing, produced by a language model at
+  request time. Send the product or the whole question and the miner returns a verdict (likely
+  genuine, likely counterfeit or uncertain) with one or two sentences naming the signals, for
+  example a price far below retail, an unauthorized seller, a missing serial number or hologram,
+  packaging or logo errors or a grey market import. It does not call an item counterfeit without a
+  real signal. The answer is produced with MiniMax under a commercial plan held by the operator, so
+  this miner is not keyless. Serves the PRODUCT_AUTHENTICITY intent.
+base_url: https://telegraph-fact.margyn.workers.dev
+
+docs:
+  documentation: https://telegraph-fact.margyn.workers.dev/
+
+limitations:
+  - code: MAX_PARAM_VALUE
+    message: product is the product or listing to assess. Passing the whole question verbatim works too. A single item, not a batch.
+    param: product
+    property: length
+    value_num: 8000
+    operator: lte
+
+rate_limit_per_sec: 2
+cache_ttl_sec: 10
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+input_schema:
+  type: object
+  properties:
+    question:
+      type: string
+      description: >
+        The full natural-language question, verbatim, for example 'Is this a genuine designer bag,
+        sold at 90 percent off by an unknown seller with no serial number'. The miner reads the
+        product from it, so passing the whole question works as well as passing the product on its
+        own.
+    product:
+      type: string
+      description: The product or item to assess for authenticity.
+    item:
+      type: string
+      description: The item to assess for authenticity.
+    listing:
+      type: string
+      description: The marketplace listing to assess for authenticity.
+    text:
+      type: string
+      description: The product or listing text to assess for authenticity.
+
+output_schema:
+  type: object
+  properties:
+    verdict:
+      type: string
+      description: The authenticity verdict, one of Likely genuine, Likely counterfeit or Uncertain.
+    summary:
+      type: string
+      description: The verdict followed by one or two sentences naming the signals that drive it.
+    confidence:
+      type: number
+      description: 0.8 for a direct model read, lower when the answer is degraded.
+    as_of:
+      type: string
+      description: Timestamp the answer was produced.
+
+endpoints:
+  - path: /product-authenticity
+    external_path: /product-authenticity
+    method: GET
+    description: >
+      Authenticity assessment for one described product, the product as a query parameter
+      (?product=...). Also accepts ?item=, ?listing= or the whole question in ?question= or ?text=.
+
+semantics:
+  signal_mapping:
+    confidence_field: confidence
+    label_field: summary
+    reason_field: summary
+  supported_intents:
+    - PRODUCT_AUTHENTICITY
+
+on_chain:
+  transform: direct
+  min_price_usdc: 0.01
+  fields:
+    strings:
+      - index: 0
+        name: verdict
+        description: The authenticity verdict in a short phrase.
+        source_path: verdict
+      - index: 1
+        name: summary
+        description: The verdict plus the signals that drive it.
+        source_path: summary
+    integers:
+      - index: 0
+        name: confidence_x100
+        description: Confidence in the answer, scaled by one hundred to keep two digits as an integer.
+        source_path: confidence
+        multiplier: 100
+  request:
+    - endpoint: product-authenticity
+      method: GET
+      query_params:
+        product: { source: strings.1 }

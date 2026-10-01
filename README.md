@@ -1,7 +1,8 @@
-# FactWire fact and content trust miner for Telegraph
+# FactWire fact, content and trust miner for Telegraph
 
-One Cloudflare Worker that answers four model-judged Telegraph trust intents by calling a language
-model at request time and returning its answer as the graded summary.
+One Cloudflare Worker that answers seven model-judged Telegraph trust intents by calling a language
+model at request time and returning its answer as the graded summary. One worker, routed by path
+prefix, one route per intent.
 
 | Intent | Endpoint | Descriptor id | The answer is |
 | --- | --- | --- | --- |
@@ -9,6 +10,9 @@ model at request time and returning its answer as the graded summary.
 | CONTENT_VERIFICATION | `/verify` | 7428 | a verdict, Accurate or Inaccurate, plus a short factual explanation naming the correct facts |
 | TEXT_AUTHENTICITY_CHECK | `/authenticity` | 7429 | a hedged verdict on human vs machine authorship, the signals and a plain low confidence and not proof note |
 | AI_TEXT_DETECTION | `/ai-detect` | 7430 | a hedged verdict (Likely AI, Likely human or Uncertain), the signals and a plain low confidence and not proof note |
+| DOCUMENT_AUTHENTICITY | `/document-authenticity` | 7434 | a verdict (likely authentic, likely forged, likely altered or uncertain) plus the deciding features, with a note that it is not a forensic certification |
+| PRODUCT_AUTHENTICITY | `/product-authenticity` | 7435 | a verdict (likely genuine, likely counterfeit or uncertain) plus the signals that drive it |
+| CONTRACT_OBLIGATION_AUDIT | `/contract-audit` | 7436 | a compliance verdict (compliant, non-compliant, partially compliant or insufficient information) plus the obligation and the clause or fact that decides it |
 
 These are the model-judged (Tier B) tier of the network. The node writes its own ground truth for
 each one with a model. The live scoring modules grade the summary, so a genuinely correct, well
@@ -52,6 +56,9 @@ GET /fact-check?claim=<the claim or the whole question>
 GET /verify?text=<the claim or the whole question>
 GET /authenticity?text=<the text or the whole question>
 GET /ai-detect?text=<the text or the whole question>
+GET /document-authenticity?document=<the document or the whole question>
+GET /product-authenticity?product=<the product or listing or the whole question>
+GET /contract-audit?contract=<the contract or obligation or the whole question>
 ```
 
 The input is read from the first non-empty of a short list of common field names, claim or text
@@ -127,6 +134,28 @@ read, so a score of 1.0 means the answer matches a known-correct reference under
 not that it reproduces a hidden string. FACT_CHECK runs on a small hard-step module: a correct
 answer clears to 1.0 or lands on the bottom rail with no partial credit. Even the live leader is
 high variance epoch to epoch, so this intent is winnable but noisier than the others.
+
+### DOCUMENT_AUTHENTICITY, PRODUCT_AUTHENTICITY and CONTRACT_OBLIGATION_AUDIT
+
+These three have no active scoring module of their own on the node yet, so genuine MiniMax-M3 answers
+were scored under the live active champion verdict scorer for a sibling intent as a shape check
+(TEXT_AUTHENTICITY_CHECK for the two authenticity intents, CONTENT_VERIFICATION for the contract
+audit), alongside an opposite verdict, a bare verdict and an off-topic control, with
+`work/telegraph/minerlab/rank.py`:
+
+| Intent | Genuine M3 (two phrasings) | Opposite verdict | Bare verdict | Off-topic | Live leader |
+| --- | --- | --- | --- | --- | --- |
+| DOCUMENT_AUTHENTICITY | 0.999999, 0.999999 | 0.000000 | 0.000000 | 0.000000 | doc-wayback 0.580 |
+| PRODUCT_AUTHENTICITY | 0.999999, 0.999999 | 0.000001 | 0.000000 | 0.000000 | prod-off-v0 0.269 |
+| CONTRACT_OBLIGATION_AUDIT | 1.000000, 1.000000 | 0.000000 | 0.000000 | 0.000000 | contract-crossref-funders 0.680 |
+
+Both differently worded genuine answers clear the top while the opposite verdict, the bare verdict
+with no justification and the off-topic answer all floor at zero, so the module rewards a correct
+on-topic verdict and nothing else. The live leaders are keyless data miners rather than reference
+replays, so a genuine reasoning verdict is positioned to top the low boards (PRODUCT_AUTHENTICITY)
+and contest the higher ones (DOCUMENT_AUTHENTICITY, CONTRACT_OBLIGATION_AUDIT). Honest caveat: the
+proxy scorer is a sibling module, not these intents' own live scorer, which does not exist yet, so
+the live epoch decides the rank.
 
 ## Licence and data terms
 

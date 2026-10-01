@@ -1,0 +1,111 @@
+version: "1"
+kind: miner
+id: 7436
+slug: factwire-contract-obligation-audit
+protocol: generic
+name: FactWire Contract Obligation Audit
+description: >
+  Compliance audit for a described contractual obligation, produced by a language model at request
+  time. Send the contract, clause or obligation or the whole question and the miner returns a
+  verdict (compliant, non-compliant, partially compliant or insufficient information) with one or
+  two sentences naming the specific obligation and the fact or clause that decides it, for example a
+  deadline met or missed, a payment or deliverable due, a notice requirement or a cap or threshold.
+  The answer is produced with MiniMax under a commercial plan held by the operator, so this miner is
+  not keyless. Serves the CONTRACT_OBLIGATION_AUDIT intent.
+base_url: https://telegraph-fact.margyn.workers.dev
+
+docs:
+  documentation: https://telegraph-fact.margyn.workers.dev/
+
+limitations:
+  - code: MAX_PARAM_VALUE
+    message: contract is the contract, clause or obligation to audit. Passing the whole question verbatim works too. A single obligation, not a batch.
+    param: contract
+    property: length
+    value_num: 8000
+    operator: lte
+
+rate_limit_per_sec: 2
+cache_ttl_sec: 10
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+input_schema:
+  type: object
+  properties:
+    question:
+      type: string
+      description: >
+        The full natural-language question, verbatim, for example 'The contract required delivery by
+        March 1 with 30 days notice of delay. Delivery slipped to April with no notice. Is the
+        supplier compliant'. The miner reads the obligation from it, so passing the whole question
+        works as well as passing the clause on its own.
+    contract:
+      type: string
+      description: The contract text to audit for obligations.
+    clause:
+      type: string
+      description: The specific clause to audit.
+    obligation:
+      type: string
+      description: The obligation to check for compliance.
+    text:
+      type: string
+      description: The contract or obligation text to audit.
+
+output_schema:
+  type: object
+  properties:
+    verdict:
+      type: string
+      description: The compliance verdict, one of Compliant, Non-compliant, Partially compliant or Insufficient information.
+    summary:
+      type: string
+      description: The verdict followed by one or two sentences naming the obligation and the fact or clause that decides it.
+    confidence:
+      type: number
+      description: 0.9 for a direct model audit, lower when the answer is degraded.
+    as_of:
+      type: string
+      description: Timestamp the answer was produced.
+
+endpoints:
+  - path: /contract-audit
+    external_path: /contract-audit
+    method: GET
+    description: >
+      Compliance audit for one described obligation, the contract or clause as a query parameter
+      (?contract=...). Also accepts ?clause=, ?obligation= or the whole question in ?question= or ?text=.
+
+semantics:
+  signal_mapping:
+    confidence_field: confidence
+    label_field: summary
+    reason_field: summary
+  supported_intents:
+    - CONTRACT_OBLIGATION_AUDIT
+
+on_chain:
+  transform: direct
+  min_price_usdc: 0.01
+  fields:
+    strings:
+      - index: 0
+        name: verdict
+        description: The compliance verdict in a short phrase.
+        source_path: verdict
+      - index: 1
+        name: summary
+        description: The verdict plus the obligation and the deciding fact or clause.
+        source_path: summary
+    integers:
+      - index: 0
+        name: confidence_x100
+        description: Confidence in the answer, scaled by one hundred to keep two digits as an integer.
+        source_path: confidence
+        multiplier: 100
+  request:
+    - endpoint: contract-audit
+      method: GET
+      query_params:
+        contract: { source: strings.1 }

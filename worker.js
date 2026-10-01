@@ -1,5 +1,5 @@
-// Telegraph AI miner: FACT_CHECK, CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK and
-// AI_TEXT_DETECTION.
+// Telegraph AI miner: FACT_CHECK, CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK, AI_TEXT_DETECTION,
+// DOCUMENT_AUTHENTICITY, PRODUCT_AUTHENTICITY and CONTRACT_OBLIGATION_AUDIT.
 //
 // These are model-judged (Tier B) intents. The node writes its own ground truth for each one
 // with a model, so a genuinely correct, well reasoned answer to the question is what scores. This
@@ -14,6 +14,11 @@
 //                            an honest low confidence and not proof statement
 //   AI_TEXT_DETECTION        a hedged verdict (Likely AI, Likely human or Uncertain), the signals,
 //                            then an honest low confidence and not proof statement
+//   DOCUMENT_AUTHENTICITY    a verdict on whether a document is genuine, forged or altered, the
+//                            deciding features, then that it is not a forensic certification
+//   PRODUCT_AUTHENTICITY     a verdict on whether a product is genuine or counterfeit, the signals
+//   CONTRACT_OBLIGATION_AUDIT a compliance verdict (Compliant, Non-compliant, Partially compliant)
+//                            with the obligation and the clause or fact that decides it
 //
 // Honesty note on the two detection intents. AI text detection and authenticity detection are not
 // reliable, so these answers never claim certainty. Each leads with a hedged verdict, names the
@@ -79,6 +84,42 @@ const AUTH_SYS = 'You are a text authenticity engine. Read the text in the reque
   + 'concrete linguistic signals you relied on in one or two sentences. Authenticity detection is '
   + 'not reliable, so you must finish with a sentence saying this is a low confidence read and not '
   + 'proof. Never claim certainty. No preamble, no markdown, no em dashes.';
+
+// DOCUMENT_AUTHENTICITY. A verdict on whether a described document is genuine, forged or altered,
+// then the deciding features. Judged from the described features, not a forensic lab, so the answer
+// says so rather than overclaiming a certification it cannot give.
+const DOCUMENT_SYS = 'You are a document authenticity engine. Read the document or the described '
+  + 'document in the request and assess whether it is genuine, forged or altered. Begin with a '
+  + 'verdict, one of Likely authentic, Likely forged, Likely altered or Uncertain, followed by a '
+  + 'period. Then name the concrete signals you relied on in one or two sentences, for example '
+  + 'inconsistent fonts or spacing, mismatched metadata or dates, an altered total or figure, an '
+  + 'invalid or missing seal or signature, a template that does not match the issuer or a hash that '
+  + 'does not match a published checksum. You are judging described features rather than running a '
+  + 'forensic lab, so finish with a short sentence saying this is an assessment of the described '
+  + 'features rather than a forensic certification. Judge on the facts given. No preamble, no '
+  + 'markdown, no em dashes.';
+
+// PRODUCT_AUTHENTICITY. A verdict on whether a described product or listing is genuine or
+// counterfeit, then the deciding signals. An item is not called counterfeit without a real signal.
+const PRODUCT_SYS = 'You are a product authenticity engine. Read the product, listing or described '
+  + 'item in the request and assess whether it is genuine or counterfeit. Begin with a verdict, one '
+  + 'of Likely genuine, Likely counterfeit or Uncertain, followed by a period. Then name the '
+  + 'concrete signals you relied on in one or two sentences, for example a price far below retail, '
+  + 'an unauthorized or unknown seller, a missing or invalid serial number or hologram, packaging '
+  + 'or spelling or logo errors, a grey market or parallel import or no proof of purchase or '
+  + 'provenance. Judge on the facts given and do not call an item counterfeit without a real '
+  + 'signal. No preamble, no markdown, no em dashes.';
+
+// CONTRACT_OBLIGATION_AUDIT. A compliance verdict on whether a described contractual obligation is
+// being met, then the specific obligation and the clause or fact that decides it.
+const CONTRACT_SYS = 'You are a contract obligation audit engine. Read the contract, clause or '
+  + 'obligation described in the request and judge whether the obligation is being met. Begin with '
+  + 'a verdict, one of Compliant, Non-compliant, Partially compliant or Insufficient information, '
+  + 'followed by a period. Then in one or two sentences name the specific obligation and the fact '
+  + 'or clause that decides it, for example a deadline met or missed, a payment or deliverable due, '
+  + 'a notice or filing requirement, a cap or threshold or a condition that has not been satisfied. '
+  + 'Judge on the described terms and facts. Cover exactly what the request asks. No preamble, no '
+  + 'markdown, no em dashes.';
 
 // __FW_HELPERS__
 // MiniMax-M3 always writes a <think> block before its answer. Take the text after the last
@@ -200,6 +241,50 @@ async function authenticity(env, text) {
     as_of: new Date().toISOString(),
   };
 }
+
+// A document authenticity read is judged from the described features, not a forensic lab, so the
+// confidence sits below the fact-check level and the summary itself says it is not a certification.
+async function documentAuth(env, text) {
+  const answer = await callMiniMax(env, DOCUMENT_SYS, text, 1500, 0.2);
+  return {
+    intent: 'DOCUMENT_AUTHENTICITY',
+    verdict: verdictLabel(answer),
+    summary: answer,
+    confidence: 0.8,
+    model: MODEL,
+    source: 'MiniMax language model',
+    attribution: CREDIT,
+    as_of: new Date().toISOString(),
+  };
+}
+
+async function productAuth(env, text) {
+  const answer = await callMiniMax(env, PRODUCT_SYS, text, 1500, 0.2);
+  return {
+    intent: 'PRODUCT_AUTHENTICITY',
+    verdict: verdictLabel(answer),
+    summary: answer,
+    confidence: 0.8,
+    model: MODEL,
+    source: 'MiniMax language model',
+    attribution: CREDIT,
+    as_of: new Date().toISOString(),
+  };
+}
+
+async function contractAudit(env, text) {
+  const answer = await callMiniMax(env, CONTRACT_SYS, text, 1500, 0.2);
+  return {
+    intent: 'CONTRACT_OBLIGATION_AUDIT',
+    verdict: verdictLabel(answer),
+    summary: answer,
+    confidence: 0.9,
+    model: MODEL,
+    source: 'MiniMax language model',
+    attribution: CREDIT,
+    as_of: new Date().toISOString(),
+  };
+}
 const jsonResponse = (body, status = 200, ttl = 0) =>
   new Response(JSON.stringify(body, null, 1), {
     status,
@@ -222,7 +307,8 @@ async function memoized(key, fn) {
   return body;
 }
 
-const INTENTS = ['FACT_CHECK', 'CONTENT_VERIFICATION', 'TEXT_AUTHENTICITY_CHECK', 'AI_TEXT_DETECTION'];
+const INTENTS = ['FACT_CHECK', 'CONTENT_VERIFICATION', 'TEXT_AUTHENTICITY_CHECK', 'AI_TEXT_DETECTION',
+  'DOCUMENT_AUTHENTICITY', 'PRODUCT_AUTHENTICITY', 'CONTRACT_OBLIGATION_AUDIT'];
 
 export default {
   async fetch(request, env) {
@@ -247,12 +333,15 @@ export default {
 
     if (path === '/') {
       return jsonResponse({
-        service: 'FactWire fact and content trust miner',
+        service: 'FactWire fact, content and trust miner',
         intents: {
           FACT_CHECK: '/fact-check?claim=<the claim or the whole question>',
           CONTENT_VERIFICATION: '/verify?text=<the claim or the whole question>',
           TEXT_AUTHENTICITY_CHECK: '/authenticity?text=<the text or the whole question>',
           AI_TEXT_DETECTION: '/ai-detect?text=<the text or the whole question>',
+          DOCUMENT_AUTHENTICITY: '/document-authenticity?document=<the document or the whole question>',
+          PRODUCT_AUTHENTICITY: '/product-authenticity?product=<the product or listing or the whole question>',
+          CONTRACT_OBLIGATION_AUDIT: '/contract-audit?contract=<the contract or obligation or the whole question>',
         },
         model: MODEL,
         attribution: CREDIT,
@@ -282,12 +371,27 @@ export default {
         run: (t) => aiDetect(env, t),
         empty: 'No text was supplied to assess. Pass the text or the whole question as ?text=.',
       },
+      '/document-authenticity': {
+        order: ['document', 'text', 'passage', 'question', 'query', 'q', 'input', 'content'],
+        run: (t) => documentAuth(env, t),
+        empty: 'No document was supplied to assess. Pass the document or the whole question as ?document= or ?text=.',
+      },
+      '/product-authenticity': {
+        order: ['product', 'item', 'listing', 'text', 'question', 'query', 'q', 'input', 'content'],
+        run: (t) => productAuth(env, t),
+        empty: 'No product was supplied to assess. Pass the product or listing or the whole question as ?product= or ?text=.',
+      },
+      '/contract-audit': {
+        order: ['contract', 'clause', 'obligation', 'text', 'question', 'query', 'q', 'input', 'content'],
+        run: (t) => contractAudit(env, t),
+        empty: 'No contract or obligation was supplied to audit. Pass the contract or clause or the whole question as ?contract= or ?text=.',
+      },
     };
     const route = routes[path];
     if (!route) {
       return jsonResponse({
         error: 'not found',
-        usage: '/fact-check, /verify, /authenticity or /ai-detect with ?claim= or ?text=',
+        usage: '/fact-check, /verify, /authenticity, /ai-detect, /document-authenticity, /product-authenticity or /contract-audit with ?claim= or ?text=',
       }, 404);
     }
 
