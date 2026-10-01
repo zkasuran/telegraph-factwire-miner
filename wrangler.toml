@@ -2,11 +2,16 @@ name = "telegraph-fact"
 main = "worker.js"
 compatibility_date = "2025-06-01"
 
-# FactWire fact-check miner for Telegraph. Serves FACT_CHECK (/fact-check) by calling the
-# MiniMax language model at request time and returning its fact-check as the graded summary.
+# FactWire fact and content trust miner for Telegraph. One worker serving four model-judged
+# intents by calling the MiniMax-M3 language model at request time and returning its answer as the
+# graded summary:
+#   FACT_CHECK               /fact-check
+#   CONTENT_VERIFICATION     /verify
+#   TEXT_AUTHENTICITY_CHECK  /authenticity
+#   AI_TEXT_DETECTION        /ai-detect
 #
 # One secret is required and it is NOT stored here. Set it once on the deployed worker:
 #   wrangler secret put MINIMAX_API_KEY
-# The worker reads it as env.MINIMAX_API_KEY. The key never goes in this file, in worker.js
-# or anywhere else in the repo. With no key the worker still answers 200 with a degraded
-# summary rather than a non-200, which the node would score as no answer.
+# The worker reads it as env.MINIMAX_API_KEY. The key never goes in this file, in worker.js or
+# anywhere else in the repo. With no key the worker still answers 200 with a degraded summary
+# rather than a non-200, which the node would score as no answer.

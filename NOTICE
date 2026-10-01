@@ -7,14 +7,15 @@ travel with it.
 --------------------------------------------------------------------------------
 api.minimax.io (MiniMax API, Open Platform)
 
-  Provides       The language-model answer this miner serves. FACT_CHECK is answered
-                 by one call to MiniMax-M2.5-highspeed at request time, returning a
-                 verdict and the correct facts that settle the claim.
+  Provides       The language-model answer this miner serves. FACT_CHECK,
+                 CONTENT_VERIFICATION, TEXT_AUTHENTICITY_CHECK and AI_TEXT_DETECTION
+                 are each answered by one call to MiniMax-M3 at request time,
+                 returning a verdict and the reasoning that settles the question.
   Plan           A paid commercial MiniMax plan held by the operator. The API key is
                  a Cloudflare secret set with `wrangler secret put MINIMAX_API_KEY`
                  and read as env.MINIMAX_API_KEY. It is never in the code or the repo.
                  Unlike the keyless wire miners, this one calls a keyed provider on
-                 purpose, as a probe.
+                 purpose, because these intents are judged on answer quality.
   Output rights  MiniMax's consumer App and Web Terms of Service state "We do not
                  claim ownership of User Contributions or User Generated Content" but
                  limit that consumer surface to "personal, non-commercial use only".
@@ -24,7 +25,7 @@ api.minimax.io (MiniMax API, Open Platform)
                  client-rendered and returned no text to a server fetch, so it is
                  recorded as unverified and carried as an open item in DATA-SOURCES.md.
   Credit         Published in every answer, in the attribution field: "Answer produced
-                 with MiniMax (MiniMax-M2.5-highspeed) under a commercial MiniMax plan
-                 held by zkasuran."
+                 with MiniMax (MiniMax-M3) under a commercial MiniMax plan held by
+                 zkasuran."
   Terms          https://platform.minimax.io/protocol/user-agreement (unverified,
                  client-rendered)

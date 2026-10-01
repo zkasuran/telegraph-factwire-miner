@@ -1,0 +1,102 @@
+version: "1"
+kind: miner
+id: 7428
+slug: factwire-content-verification
+protocol: generic
+name: FactWire Content Verification
+description: >
+  Content verification for a claim or a piece of content, answered by a language model at
+  request time. Send the claim or the whole question and the miner returns a one word verdict,
+  Accurate or Inaccurate, followed by a short factual explanation naming the correct facts. The
+  answer is produced with MiniMax under a commercial plan held by the operator, so this miner is
+  not keyless. Serves the CONTENT_VERIFICATION intent.
+base_url: https://telegraph-fact.margyn.workers.dev
+
+docs:
+  documentation: https://telegraph-fact.margyn.workers.dev/
+
+limitations:
+  - code: MAX_PARAM_VALUE
+    message: text is the claim to verify or the whole question. A single passage, not a batch.
+    param: text
+    property: length
+    value_num: 8000
+    operator: lte
+
+rate_limit_per_sec: 2
+cache_ttl_sec: 10
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+input_schema:
+  type: object
+  properties:
+    question:
+      type: string
+      description: >
+        The full natural-language question, verbatim, for example 'Verify whether the following
+        claim is accurate: "..."'. The miner reads the claim from it, so passing the whole
+        question works as well as passing the claim on its own.
+    text:
+      type: string
+      description: The claim or content whose accuracy should be verified.
+    claim:
+      type: string
+      description: The claim to verify, if supplied on its own.
+
+output_schema:
+  type: object
+  properties:
+    verdict:
+      type: string
+      description: The one word verdict the answer leads with, Accurate or Inaccurate.
+    summary:
+      type: string
+      description: The verdict followed by a short factual explanation naming the correct facts.
+    confidence:
+      type: number
+      description: 0.96 for a direct model answer, lower when the answer is degraded.
+    as_of:
+      type: string
+      description: Timestamp the answer was produced.
+
+endpoints:
+  - path: /verify
+    external_path: /verify
+    method: GET
+    description: >
+      Verify one claim, the claim as a query parameter (?text=...). Also accepts a whole
+      question in ?question= or ?query= or the claim in ?claim=.
+
+semantics:
+  signal_mapping:
+    confidence_field: confidence
+    label_field: summary
+    reason_field: summary
+  supported_intents:
+    - CONTENT_VERIFICATION
+
+on_chain:
+  transform: direct
+  min_price_usdc: 0.01
+  fields:
+    strings:
+      - index: 0
+        name: verdict
+        description: The one word verdict, Accurate or Inaccurate.
+        source_path: verdict
+      - index: 1
+        name: summary
+        description: The verdict plus a short factual explanation.
+        source_path: summary
+    integers:
+      - index: 0
+        name: confidence_x100
+        description: Confidence in the answer, scaled by one hundred to keep two digits as an integer.
+        source_path: confidence
+        multiplier: 100
+  request:
+    - endpoint: verify
+      method: GET
+      query_params:
+        text: { source: strings.1 }

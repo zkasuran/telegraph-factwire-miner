@@ -1,0 +1,103 @@
+version: "1"
+kind: miner
+id: 7430
+slug: factwire-ai-text-detection
+protocol: generic
+name: FactWire AI Text Detection
+description: >
+  AI text detection for a passage, answered by a language model at request time. Send the text or
+  the whole question and the miner returns a hedged verdict, Likely AI, Likely human or Uncertain,
+  then the linguistic signals it read, then a plain statement that AI text detection is not
+  reliable and this is a low confidence assessment, not proof. The answer is produced with MiniMax
+  under a commercial plan held by the operator, so this miner is not keyless. Serves the
+  AI_TEXT_DETECTION intent.
+base_url: https://telegraph-fact.margyn.workers.dev
+
+docs:
+  documentation: https://telegraph-fact.margyn.workers.dev/
+
+limitations:
+  - code: MAX_PARAM_VALUE
+    message: text is the passage to assess or the whole question. A single passage, not a batch.
+    param: text
+    property: length
+    value_num: 8000
+    operator: lte
+
+rate_limit_per_sec: 2
+cache_ttl_sec: 10
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+input_schema:
+  type: object
+  properties:
+    question:
+      type: string
+      description: >
+        The full natural-language question, verbatim, for example 'Assess whether this text was
+        written by an AI or a human: "..."'. The miner reads the text from it, so passing the
+        whole question works as well as passing the text on its own.
+    text:
+      type: string
+      description: The passage to assess for AI authorship.
+    passage:
+      type: string
+      description: The passage to assess, if supplied on its own.
+
+output_schema:
+  type: object
+  properties:
+    verdict:
+      type: string
+      description: The hedged verdict the answer leads with, Likely AI, Likely human or Uncertain.
+    summary:
+      type: string
+      description: The verdict, the signals and a plain low confidence and not proof statement.
+    confidence:
+      type: number
+      description: 0.6 by default, because AI text detection is not reliable, lower when degraded.
+    as_of:
+      type: string
+      description: Timestamp the answer was produced.
+
+endpoints:
+  - path: /ai-detect
+    external_path: /ai-detect
+    method: GET
+    description: >
+      Assess one passage, the text as a query parameter (?text=...). Also accepts a whole
+      question in ?question= or ?query= or the passage in ?passage=.
+
+semantics:
+  signal_mapping:
+    confidence_field: confidence
+    label_field: summary
+    reason_field: summary
+  supported_intents:
+    - AI_TEXT_DETECTION
+
+on_chain:
+  transform: direct
+  min_price_usdc: 0.01
+  fields:
+    strings:
+      - index: 0
+        name: verdict
+        description: The hedged verdict, Likely AI, Likely human or Uncertain.
+        source_path: verdict
+      - index: 1
+        name: summary
+        description: The verdict plus the signals and the low confidence statement.
+        source_path: summary
+    integers:
+      - index: 0
+        name: confidence_x100
+        description: Confidence in the answer, scaled by one hundred to keep two digits as an integer.
+        source_path: confidence
+        multiplier: 100
+  request:
+    - endpoint: ai-detect
+      method: GET
+      query_params:
+        text: { source: strings.1 }
